@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:whazlansaja/models/dosen.dart';
+import 'package:whazlansaja/models/dosen_model.dart';
 import 'package:whazlansaja/screen/pesan_screen.dart';
 
 class BerandaScreen extends StatefulWidget {
@@ -12,111 +12,118 @@ class BerandaScreen extends StatefulWidget {
 }
 
 class _BerandaScreenState extends State<BerandaScreen> {
-  List<Dosen> dosenList = [];
-  bool isLoading = true;
-  String? errorMessage;
+  List<DosenModel> listDosen = [];
 
   @override
   void initState() {
     super.initState();
-    loadDosen();
+    loadDosenJson();
   }
 
-  Future<void> loadDosen() async {
-    try {
-      final data = await rootBundle.loadString('assets/json_data_chat_dosen/dosen_chat.json');
-      final List<dynamic> jsonData = json.decode(data);
-      final list = jsonData.map((e) => Dosen.fromJson(e)).toList();
-
-      setState(() {
-        dosenList = list;
-        isLoading = false;
-      });
-    } catch (e) {
-      debugPrint('Gagal memuat data dosen: $e');
-      setState(() {
-        isLoading = false;
-        errorMessage = 'Gagal memuat data dosen.';
-      });
-    }
+  Future<void> loadDosenJson() async {
+    final String response = await rootBundle.loadString('assets/json_data_chat_dosen/dosen_chat.json');
+    final data = json.decode(response) as List;
+    setState(() {
+      listDosen = data.map((e) => DosenModel.fromJson(e)).toList();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        elevation: 2,
-        title: const Text(
-          'WhAzlansaja',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('WhAzlansaja'),
         actions: [
           IconButton(onPressed: () {}, icon: const Icon(Icons.camera_enhance)),
           IconButton(onPressed: () {}, icon: const Icon(Icons.more_vert)),
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(80),
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 10, left: 12, right: 12),
-            child: SearchAnchor.bar(
-              barElevation: const WidgetStatePropertyAll(2),
-              barHintText: 'Cari dosen dan mulai chat',
-              suggestionsBuilder: (context, controller) {
-                return <Widget>[
-                  const Center(child: Text('Belum ada pencarian')),
-                ];
-              },
-            ),
-          ),
-        ),
       ),
-
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : errorMessage != null
-              ? Center(child: Text(errorMessage!))
-              : dosenList.isEmpty
-                  ? const Center(child: Text('Tidak ada data dosen.'))
-                  : ListView.builder(
-                      itemCount: dosenList.length,
-                      itemBuilder: (context, index) {
-                        final dosen = dosenList[index];
-                        return ListTile(
-                          onTap: () async {
-                            final result = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => PesanScreen(dosen: dosen),
-                              ),
-                            );
-
-                            if (result != null && result is Dosen) {
-                              setState(() {
-                                dosenList[index] = result;
-                              });
-                            }
-                          },
-                          leading: CircleAvatar(
-                            backgroundImage: AssetImage(dosen.avatar),
-                          ),
-                          title: Text(dosen.nama),
-                          subtitle: Text(
-                            dosen.chat.isNotEmpty
-                                ? dosen.chat.last.isi
-                                : 'Belum ada chat',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          trailing: const Text('Kemarin'),
-                        );
-                      },
+      body: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        itemCount: listDosen.length + 1, // +1 untuk search bar
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            // Search Bar di paling atas
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: SearchAnchor.bar(
+                barElevation: const WidgetStatePropertyAll(2),
+                barHintText: 'Cari dosen dan mulai chat',
+                suggestionsBuilder: (context, controller) {
+                  return <Widget>[
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text('Belum ada pencarian'),
+                      ),
                     ),
+                  ];
+                },
+              ),
+            );
+          }
 
+          final dosen = listDosen[index - 1];
+          final lastMessage = dosen.messages.isNotEmpty
+              ? dosen.messages.last.message
+              : 'Belum ada pesan';
+
+          int unreadCount = dosen.messages
+              .where((msg) => !msg.isRead && msg.from == 0)
+              .length;
+
+          return ListTile(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PesanScreen(dosen: dosen),
+                ),
+              );
+            },
+            leading: CircleAvatar(
+              backgroundImage: AssetImage(dosen.avatar),
+            ),
+            title: Text(
+              dosen.fullName,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(
+              lastMessage,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (dosen.fullName == 'Azlan, S.Kom., M.Kom.' && unreadCount > 0)
+                  Transform.translate(
+                    offset: const Offset(24, 0),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Text(
+                        '1',
+                        style: TextStyle(color: Colors.white, fontSize: 8),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 4),
+                Text(
+                  dosen.fullName == 'Azlan, S.Kom., M.Kom.' ? '2 menit lalu' : 'kemarin',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
       floatingActionButton: FloatingActionButton.small(
         onPressed: () {},
         child: const Icon(Icons.add_comment),
       ),
-
       bottomNavigationBar: NavigationBar(
         selectedIndex: 0,
         destinations: const [

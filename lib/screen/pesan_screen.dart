@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:whazlansaja/models/dosen.dart';
-import 'package:whazlansaja/data_saya.dart'; 
+import 'package:whazlansaja/models/message_model.dart';
+import 'package:whazlansaja/models/dosen_model.dart';
+import 'package:whazlansaja/data_saya.dart';
 
 class PesanScreen extends StatefulWidget {
-  final Dosen dosen;
+  final DosenModel dosen;
 
   const PesanScreen({super.key, required this.dosen});
 
@@ -13,157 +14,164 @@ class PesanScreen extends StatefulWidget {
 
 class _PesanScreenState extends State<PesanScreen> {
   final TextEditingController _controller = TextEditingController();
-  late List<Chat> pesanList;
+
+  late List<MessageModel> _messages;
 
   @override
   void initState() {
     super.initState();
-    pesanList = List.from(widget.dosen.chat);
+    _messages = List.from(widget.dosen.messages);
   }
 
-  void kirimPesan() {
-    if (_controller.text.trim().isEmpty) return;
-
-    setState(() {
-      pesanList.add(Chat(
-        from: 1,
-        isi: _controller.text.trim(),
-      ));
-      _controller.clear();
-    });
+  void _sendMessage() {
+    final text = _controller.text.trim();
+    if (text.isNotEmpty) {
+      setState(() {
+        _messages.add(MessageModel(from: 1, message: text));
+        _controller.clear();
+      });
+    }
   }
 
-  @override
-  void dispose() {
-    widget.dosen.chat
-      ..clear()
-      ..addAll(pesanList);
-    Navigator.pop(context, widget.dosen);
-    super.dispose();
-  }
+  Widget _buildChatBubble(MessageModel msg) {
+  bool isSender = msg.from == 1;
 
-  @override
-  Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () {
-        widget.dosen.chat
-          ..clear()
-          ..addAll(pesanList);
-        Navigator.pop(context, widget.dosen);
-        return Future.value(false);
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          titleSpacing: 0,
-          title: Row(
-            children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundImage: AssetImage(widget.dosen.avatar),
-              ),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.dosen.nama,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 2),
-                  const Text(
-                    '09.00',
-                    style: TextStyle(fontSize: 12, color: Colors.white70),
-                  ),
-                ],
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+    child: Row(
+      mainAxisAlignment:
+          isSender ? MainAxisAlignment.end : MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        // Avatar kiri (dosen)
+        if (!isSender)
+          CircleAvatar(
+            radius: 16,
+            backgroundImage: AssetImage(widget.dosen.avatar),
+          ),
+        if (!isSender) const SizedBox(width: 8),
+
+        // Pesan
+        Container(
+          padding: const EdgeInsets.all(12),
+          constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.75),
+          decoration: BoxDecoration(
+            color: isSender ? const Color.fromARGB(255, 44, 194, 89) : const Color.fromARGB(255, 120, 151, 205),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 2,
+                offset: const Offset(1, 1),
               )
             ],
           ),
-          actions: [
-            IconButton(onPressed: () {}, icon: const Icon(Icons.call)),
-            IconButton(onPressed: () {}, icon: const Icon(Icons.more_vert)),
-          ],
+          child: Text(
+            msg.message,
+            style: const TextStyle(color: Colors.black, fontSize: 16),
+          ),
         ),
-        body: Column(
-          children: [
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(12),
-                itemCount: pesanList.length,
-                itemBuilder: (context, index) {
-                  final pesan = pesanList[index];
-                  final isUser = pesan.from == 1;
 
-                  return Row(
-                    mainAxisAlignment:
-                        isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      if (!isUser)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: CircleAvatar(
-                            radius: 16,
-                            backgroundImage: AssetImage(widget.dosen.avatar),
-                          ),
-                        ),
-                      Flexible(
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          padding: const EdgeInsets.all(12),
-                          constraints: BoxConstraints(
-                              maxWidth: MediaQuery.of(context).size.width * 0.65),
-                          decoration: BoxDecoration(
-                            color: isUser ? Colors.green[400] : Colors.grey[800],
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            pesan.isi,
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                        ),
-                      ),
-                      if (isUser)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8.0),
-                          child: CircleAvatar(
-                            radius: 16,
-                            backgroundImage: AssetImage(DataSaya.gambar),
-                          ),
-                        ),
-                    ],
-                  );
-                },
-              ),
+        if (isSender) const SizedBox(width: 8),
+        // Avatar kanan (user)
+        if (isSender)
+           CircleAvatar(
+              radius: 16,
+              backgroundImage: AssetImage(DataSaya.gambar),
             ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      decoration: InputDecoration(
-                        hintText: 'Ketikkan pesan',
-                        filled: true,
-                        fillColor: Colors.grey[900],
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.send),
-                    onPressed: kirimPesan,
-                  )
-                ],
-              ),
-            )
+      ],
+    ),
+  );
+}
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+  title: Row(
+    children: [
+      CircleAvatar(
+        backgroundImage: AssetImage(widget.dosen.avatar),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.dosen.fullName,
+              style: const TextStyle(fontSize: 18),
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              widget.dosen.fullName == 'Azlan, S.Kom., M.Kom.' ? '6:30' : '',
+              style: const TextStyle(fontSize: 12, color: Colors.white70),
+),
           ],
         ),
+      ),
+      IconButton(
+        icon: const Icon(Icons.video_call_rounded),
+        onPressed: () {
+        },
+      ),
+      IconButton(
+        icon: const Icon(Icons.call),
+        onPressed: () {
+        },
+      ),
+      IconButton(
+        icon: const Icon(Icons.more_vert),
+        onPressed: () {
+        },
+      ),
+    ],
+  ),
+),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              reverse: false,
+              padding: const EdgeInsets.only(top: 10),
+              itemCount: _messages.length,
+              itemBuilder: (context, index) {
+                return _buildChatBubble(_messages[index]);
+              },
+            ),
+          ),
+          Container(
+  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+  color: const Color.fromARGB(255, 26, 33, 38),
+  child: Row(
+    children: [
+      IconButton(
+        icon: const Icon(Icons.emoji_emotions_outlined),
+        onPressed: () {},
+      ),
+      Expanded(
+        child: TextField(
+          minLines: 1,
+          maxLines: 3,
+          controller: _controller,
+          keyboardType: TextInputType.multiline,
+          decoration: const InputDecoration(
+            hintText: 'Ketik pesan',
+            border: InputBorder.none,
+          ),
+        ),
+      ),
+      IconButton(
+        icon: const Icon(Icons.send),
+        onPressed: _sendMessage,
+      ),
+    ],
+  ),
+),
+        ],
       ),
     );
   }
